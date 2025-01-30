@@ -60,7 +60,7 @@ def main():
     st.subheader("系統操作")
     col1, col2, col3 = st.columns(3)
     if col1.button("初始化資料 (init)"):
-        with st.spinner("正在初始化所有ETF歷史數據..."):
+        with st.spinner("正在初始化所有ETF歷史數據，請稍候..."):
             init_historical_data(config)
         st.success("初始化完成！")
 

@@ -1,0 +1,15 @@
+# settings.yaml
+
+# 將主來源設為 twse，fallback (備援) 設為 yahoo_finance
+data_source:
+  primary: twse
+  fallback: yahoo_finance
+
+# 指定存放ETF資料的資料夾路徑
+data_dir: data
+
+# 設定日誌層級，可用 DEBUG / INFO / WARNING / ERROR / CRITICAL
+log_level: INFO
+
+# 每日更新的排程時間 (24小時制)
+update_time: "18:00"

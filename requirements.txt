@@ -1,0 +1,10 @@
+pandas
+numpy
+requests
+beautifulsoup4
+yfinance
+plotly
+schedule
+pyyaml
+tqdm
+streamlit

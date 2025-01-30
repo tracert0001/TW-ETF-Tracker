@@ -1,0 +1,28 @@
+# config/etf_list.yaml
+- name: 元大台灣50
+  code: "0050"
+  start_date: 2021-01-02
+
+- name: 統一FANG+
+  code: "00757"
+  start_date: 2021-01-02
+
+- name: 富邦台50
+  code: "006208"
+  start_date: 2021-01-02
+
+- name: 國泰台灣領袖50
+  code: "00922"
+  start_date: 2021-01-02
+
+- name: 富邦公司治理
+  code: "00692"
+  start_date: 2021-01-02
+
+- name: 富邦NASDAQ
+  code: "00662"
+  start_date: 2021-01-02
+
+- name: 元大SP500
+  code: "00646"
+  start_date: 2021-01-02

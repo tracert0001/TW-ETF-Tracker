@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import logging
+import time
 
 from config.config_loader import load_config
 from modules.data_fetcher import ETFDataFetcher
@@ -57,20 +58,34 @@ def main():
     comparator = ETFComparator(storage)
 
     # 區塊1: 功能按鈕 (初始化、更新、排程)
-    st.subheader("系統操作")
-    col1, col2, col3 = st.columns(3)
-    if col1.button("初始化資料 (init)"):
-        with st.spinner("正在初始化所有ETF歷史數據..."):
-            init_historical_data(config)
-        st.success("初始化完成！")
+    # st.subheader("系統操作")
+    # 使用 st.expander 讓這個區塊可以展開/收起
+    with st.expander("🔧 系統操作", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        if col1.button("初始化資料 (init)"):
+            start_time = time.time()  # 記錄開始時間
+            with st.spinner("正在初始化所有ETF歷史數據，請稍候..."):
+                init_historical_data(config)
 
-    if col2.button("更新當日資料 (update)"):
-        with st.spinner("正在更新今日資料..."):
-            update_daily_data(config)
-        st.success("更新完成！")
+            end_time = time.time()  # 記錄結束時間
+            elapsed_time = end_time - start_time  # 計算耗時 (秒)
+            minutes, seconds = divmod(elapsed_time, 60)  # 轉換成分鐘與秒
 
-    if col3.button("啟動每日排程 (schedule)"):
-        st.warning("目前的程式架構下，schedule 會進入 while True。建議在終端機執行 main.py --schedule。")
+            st.success(f"初始化完成！總耗時: {int(minutes)} 分 {seconds:.2f} 秒")
+
+        if col2.button("更新當日資料 (update)"):
+            start_time = time.time()  # 記錄開始時間
+            with st.spinner("正在更新今日資料..."):
+                update_daily_data(config)
+
+            end_time = time.time()  # 記錄結束時間
+            elapsed_time = end_time - start_time  # 計算耗時 (秒)
+            minutes, seconds = divmod(elapsed_time, 60)  # 轉換成分鐘與秒
+
+            st.success(f"更新完成！總耗時: {int(minutes)} 分 {seconds:.2f} 秒")
+
+        if col3.button("啟動每日排程 (schedule)"):
+            st.warning("目前的程式架構下，schedule 會進入 while True。建議在終端機執行 main.py --schedule。")
 
     st.write("---")
 

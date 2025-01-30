@@ -63,7 +63,7 @@ class ETFDataFetcher:
             try:
                 df_month = self._fetch_twse_one_month(etf_code, yyyymmdd)
                 all_df.append(df_month)
-                time.sleep(1)  # 禮貌性延遲，避免對官方站點造成壓力
+                time.sleep(0.5)  # 禮貌性延遲，避免對官方站點造成壓力
             except Exception as e:
                 logger.warning(f"{etf_code} {month_start} 資料抓取失敗: {e}")
 
@@ -76,49 +76,62 @@ class ETFDataFetcher:
         final_df = final_df.sort_values('Date').drop_duplicates('Date')
         return final_df
 
-    def _fetch_twse_one_month(self, etf_code, yyyymmdd):
+    def _fetch_twse_one_month(self, etf_code, yyyymmdd, max_retries=3, retry_delay=2):
         """
         抓取「特定年月」的成交資訊，並解析成DataFrame
         :param etf_code: '0050'
         :param yyyymmdd: '20250101' (只會回傳該月資料)
+        :param max_retries: 最大重試次數 (預設 3 次)
+        :param retry_delay: 每次重試前等待秒數 (預設 2 秒)
         :return: DataFrame(columns=['Date','Close','Volume'])
         """
         url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=csv&date={yyyymmdd}&stockNo={etf_code}"
-        resp = requests.get(url)
-        resp.encoding = 'big5'  # TWSE CSV通常是big5
         
-        if resp.status_code != 200:
-            raise DataFetchError(f"HTTP狀態碼非200: {resp.status_code}")
+        for attempt in range(1, max_retries + 1):  # 重試最多 max_retries 次
+            try:
+                resp = requests.get(url, timeout=10)  # 設定 timeout 避免請求卡住
+                resp.encoding = 'big5'  # TWSE CSV 通常是 big5
 
-        lines = resp.text.split('\n')
-        # 過濾掉非資料行 (通常前幾行或最後幾行是中文標題)
-        raw_data = []
-        for line in lines:
-            # 濾掉空行或標題行
-            if len(line.split('","')) < 9:  # 判斷欄位數是否合理
-                continue
-            raw_data.append(line.strip())
+                if resp.status_code != 200:
+                    raise DataFetchError(f"HTTP 狀態碼非 200: {resp.status_code}")
 
-        if not raw_data:
-            # 代表該月沒有資料
-            return pd.DataFrame(columns=['Date','Close','Volume'])
+                lines = resp.text.split('\n')
 
-        df = pd.DataFrame([r.split('","') for r in raw_data])
-        # TWSE預設表頭應該在第一列，我們取其做為columns
-        # 例如: ['日期', '成交股數', '成交金額', '開盤價', '最高價', '最低價', '收盤價', '漲跌價差', '成交筆數']
-        df.columns = df.iloc[0].str.replace('"', '')
-        df = df.iloc[1:].copy()  # 去除表頭那一列資料
+                # 過濾掉非資料行 (通常前幾行或最後幾行是標題或空行)
+                raw_data = [line.strip() for line in lines if len(line.split('","')) >= 9]
 
-        # 取我們需要的欄位: 日期(0), 收盤價(6), 成交股數(1)
-        df['日期'] = df['日期'].str.replace('"','')
-        df['日期'] = df['日期'].apply(self._transform_date)
-        df['收盤價'] = df['收盤價'].str.replace(',','').astype(float)
-        df['成交股數'] = df['成交股數'].str.replace(',','').astype(float)
+                if not raw_data:
+                    logging.warning(f"[{etf_code} {yyyymmdd}] 該月份無資料，直接返回空 DataFrame")
+                    return pd.DataFrame(columns=['Date','Close','Volume'])
 
-        output = df[['日期','收盤價','成交股數']].copy()
-        output.columns = ['Date','Close','Volume']
-        
-        return output
+                # 解析 CSV
+                df = pd.DataFrame([r.split('","') for r in raw_data])
+                df.columns = df.iloc[0].str.replace('"', '')
+                df = df.iloc[1:].copy()  # 去除表頭那一列
+
+                # 取需要的欄位: 日期(0), 收盤價(6), 成交股數(1)
+                df['日期'] = df['日期'].str.replace('"','')
+                df['日期'] = df['日期'].apply(self._transform_date)
+                df['收盤價'] = df['收盤價'].str.replace(',','').astype(float)
+                df['成交股數'] = df['成交股數'].str.replace(',','').astype(float)
+
+                output = df[['日期','收盤價','成交股數']].copy()
+                output.columns = ['Date','Close','Volume']
+
+                return output  # 成功抓取資料時直接回傳
+
+            except (requests.RequestException, DataFetchError) as e:
+                logging.warning(f"[{etf_code} {yyyymmdd}] 抓取失敗 (第 {attempt} 次): {e}")
+
+            except Exception as e:
+                logging.error(f"[{etf_code} {yyyymmdd}] 未知錯誤: {e}")
+
+            if attempt < max_retries:
+                logging.info(f"[{etf_code} {yyyymmdd}] 等待 {retry_delay} 秒後重試 ({attempt}/{max_retries}) ...")
+                time.sleep(retry_delay)
+
+        logging.error(f"[{etf_code} {yyyymmdd}] 多次重試失敗，返回空 DataFrame")
+        return pd.DataFrame(columns=['Date','Close','Volume'])  # 多次重試失敗則回傳空 DataFrame
 
     def _transform_date(self, tw_date_str):
         """
